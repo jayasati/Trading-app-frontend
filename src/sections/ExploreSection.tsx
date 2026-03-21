@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
 import { useLivePrices } from "@/hooks/useLivePrices";
 import { onStockViewed } from "@/lib/stockEvents";
+import { useRouter } from "next/navigation";
 
 /* ─── helpers ─── */
 function fmt(n: number) {
@@ -36,6 +37,7 @@ interface RecentStock {
 
 /* ─── Stock Card ─── */
 function StockCard({ stock, livePrice }: { stock: RecentStock; livePrice?: number }) {
+  const router = useRouter();
   const basePrice  = livePrice ?? stock.quote?.price ?? null;
   const prevClose  = stock.quote?.close ?? 0;
   const { change, pct } = basePrice ? calcChange(basePrice, prevClose) : { change: 0, pct: 0 };
@@ -56,6 +58,10 @@ function StockCard({ stock, livePrice }: { stock: RecentStock; livePrice?: numbe
   return (
     <div
       className="card card-hover animate-fade-up"
+       onClick={() =>{
+        router.push(`/stock/${stock.id}`);
+        router.push(`/stock/${stock.id}`)}
+       } 
       style={{
         padding: "18px",
         cursor: "pointer",
@@ -307,12 +313,19 @@ function TopMovers() {
             {movers.map((m, i) => {
               const pos = m.pct >= 0;
               return (
-                <tr
-                  key={i}
-                  style={{ borderTop: "1px solid var(--color-border-soft)", cursor: "pointer", transition: "background 0.1s" }}
-                  onMouseEnter={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = "var(--color-surface-2)")}
-                  onMouseLeave={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = "transparent")}
-                >
+                  // TopMovers table row — replace the onMouseEnter/Leave with:
+                  <tr
+                    key={i}
+                    style={{ borderTop: "1px solid var(--color-border-soft)", cursor: "pointer", transition: "background 0.1s" }}
+                    onMouseEnter={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = "var(--color-surface-2)")}
+                    onMouseLeave={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = "transparent")}
+                    onClick={() => {
+                      // TopMovers uses mock data without IDs — search by symbol name
+                      // When you wire TopMovers to real DB data, replace with router.push(`/stock/${m.id}`)
+                      const searchInput = document.querySelector('input[placeholder="Search stocks…"]') as HTMLInputElement;
+                      if (searchInput) searchInput.focus();
+                    }}
+                  >
                   <td style={{ padding: "14px 20px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <div

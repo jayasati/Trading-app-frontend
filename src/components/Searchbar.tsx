@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { api } from "@/lib/api";
 import { emitStockViewed } from "@/lib/stockEvents";
+import { useRouter } from "next/navigation";
 
 export default function SearchBar() {
   const [query,   setQuery]   = useState("");
@@ -31,25 +32,17 @@ export default function SearchBar() {
   //   1. Fetches live price from Yahoo Finance (if not cached)
   //   2. Calls redis.recordView(stockId) on the backend
   //   3. ExploreSection re-fetches /market/recent and shows it
+
+  const router = useRouter();
   const handleSelectStock = async (stock: any) => {
-    console.log('Clicking stock:', stock);
-    // Close dropdown immediately for snappy feel
     setFocused(false);
     setQuery("");
     setResults([]);
-
-    setViewing(stock.id);
-    try {
-      await api.get(`/market/quote/${stock.id}`);
-      // Tell ExploreSection to refresh its recently-viewed list
-      emitStockViewed();
-    } catch {
-      // Quote fetch failed — still emit so the stock appears if DB had a cached price
-      emitStockViewed();
-    } finally {
-      setViewing(null);
-    }
+  
+    // Navigate to stock detail page
+    router.push(`/stock/${stock.id}`);
   };
+ 
 
   // Close on outside click
   useEffect(() => {
