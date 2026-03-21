@@ -7,6 +7,7 @@ import MarketTicker from "@/components/MarketTicker";
 import ExploreSection from "@/sections/ExploreSection";
 import HoldingsSection from "@/sections/HoldingsSection";
 import OrdersSection from "@/sections/OrdersSection";
+import PositionsSection from "@/sections/PositionsSection";
 
 const SECTION_MAP: Partial<Record<NavTab, React.ReactNode>> = {};
 
@@ -28,7 +29,7 @@ export default function Dashboard() {
       case "Orders":
         return <OrdersSection />;
       case "Positions":
-        return <PlaceholderSection title="Positions" icon="📊" desc="Your open intraday positions will appear here." />;
+        return <PositionsSection />;
       case "Watchlist":
         return <PlaceholderSection title="Watchlist" icon="👁️" desc="Add stocks to your watchlist to track them." />;
       default:
