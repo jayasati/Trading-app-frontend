@@ -35,7 +35,12 @@ export default function StockDetailPage() {
   const prevClose    = detail?.quote?.close ?? 0;
   const change       = prevClose ? livePrice - prevClose : (detail?.quote?.change ?? 0);
   const changePct    = prevClose ? (change / prevClose) * 100 : (detail?.quote?.changePct ?? 0);
-  const positive     = change >= 0;
+  const positive = (() => {
+    if (period === "1D" || history.length < 2) return change >= 0;
+    const first = history[0].close;
+    const last  = livePrice || history[history.length - 1].close;
+    return last >= first;
+  })();
 
   const handlePeriod = (p: Period) => {
     setPeriod(p);
@@ -89,14 +94,15 @@ export default function StockDetailPage() {
     <div style={{ minHeight: "100vh", background: "var(--color-bg)", fontFamily: "var(--font-sans)" }}>
 
       {/* ── Sticky header: name, price, period tabs ── */}
-      <StockHeader
+        <StockHeader
         detail={detail}
         livePrice={livePrice}
         change={change}
         changePct={changePct}
         period={period}
         onPeriod={handlePeriod}
-      />
+        history={history}   // ← add this
+        />
 
       {/* ── Main content ── */}
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "28px 24px 80px" }}>
