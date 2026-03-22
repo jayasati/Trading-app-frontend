@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 
 export interface PriceMap {
@@ -21,16 +21,22 @@ function getSocket(): Socket {
 }
 
 export function useLivePrices(stockIds: string[]): PriceMap {
-  const [prices, setPrices] = useState<PriceMap>({});
+  const [prices, setPrices]   = useState<PriceMap>({});
+  const stockIdsRef           = useRef<string[]>(stockIds);
 
+  // Keep ref in sync without triggering re-renders
+  useEffect(() => {
+    stockIdsRef.current = stockIds;
+  }, [stockIds]);
+
+  // Stable handler — never recreated, always reads latest IDs via ref
   const handlePriceUpdate = useCallback(
     (data: { stockId: string; price: number }) => {
-      if (stockIds.includes(data.stockId)) {
+      if (stockIdsRef.current.includes(data.stockId)) {
         setPrices((prev) => ({ ...prev, [data.stockId]: data.price }));
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [stockIds.join(",")]
+    [] // intentionally empty — stability is the goal
   );
 
   useEffect(() => {

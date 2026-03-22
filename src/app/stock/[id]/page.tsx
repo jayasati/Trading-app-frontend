@@ -1,14 +1,13 @@
 "use client";
-// src/app/stock/[id]/page.tsx
 
-import { useState }      from "react";
-import { useParams }     from "next/navigation";
-import { useLivePrices } from "@/hooks/useLivePrices";
+import { useState }       from "react";
+import { useParams }      from "next/navigation";
+import { useLivePrices }  from "@/hooks/useLivePrices";
 import { useStockDetail } from "@/hooks/useStockDetail";
 
 import StockHeader   from "@/components/stock/StockHeader";
 import PriceChart    from "@/components/stock/PriceChart";
-import OrderPanel    from "@/components/stock/OrderPanel";
+import OrderPanel    from "@/components/stock/order/OrderPanel";
 import OverviewTab   from "@/components/stock/OverviewTab";
 import TechnicalsTab from "@/components/stock/TechnicalsTab";
 import NewsTab       from "@/components/stock/NewsTab";
@@ -30,11 +29,16 @@ export default function StockDetailPage() {
     refetchWallet, fetchHistory,
   } = useStockDetail(stockId);
 
-  const livePrices   = useLivePrices([stockId]);
-  const livePrice    = livePrices[stockId] ?? detail?.quote?.price ?? 0;
-  const prevClose    = detail?.quote?.close ?? 0;
-  const change       = prevClose ? livePrice - prevClose : (detail?.quote?.change ?? 0);
-  const changePct    = prevClose ? (change / prevClose) * 100 : (detail?.quote?.changePct ?? 0);
+  const livePrices = useLivePrices([stockId]);
+  const livePrice  = livePrices[stockId] ?? detail?.quote?.price ?? 0;
+  const prevClose  = detail?.quote?.close ?? 0;
+  const change     = prevClose
+    ? livePrice - prevClose
+    : (detail?.quote?.change ?? 0);
+  const changePct  = prevClose
+    ? (change / prevClose) * 100
+    : (detail?.quote?.changePct ?? 0);
+
   const positive = (() => {
     if (period === "1D" || history.length < 2) return change >= 0;
     const first = history[0].close;
@@ -47,23 +51,27 @@ export default function StockDetailPage() {
     fetchHistory(p);
   };
 
-  // ── Loading state ──
+  // ── Loading ──
   if (loading) {
     return (
-      <div style={{
-        minHeight: "100vh", background: "var(--color-bg)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontFamily: "var(--font-sans)",
-      }}>
+      <div
+        style={{
+          minHeight: "100vh", background: "var(--color-bg)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: "var(--font-sans)",
+        }}
+      >
         <div style={{ textAlign: "center", color: "var(--color-text-muted)" }}>
-          <div style={{
-            width: 40, height: 40,
-            border: "3px solid var(--color-primary)",
-            borderTopColor: "transparent",
-            borderRadius: "50%",
-            animation: "spin 0.7s linear infinite",
-            margin: "0 auto 16px",
-          }} />
+          <div
+            style={{
+              width: 40, height: 40,
+              border: "3px solid var(--color-primary)",
+              borderTopColor: "transparent",
+              borderRadius: "50%",
+              animation: "spin 0.7s linear infinite",
+              margin: "0 auto 16px",
+            }}
+          />
           <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
           <p style={{ fontSize: 14 }}>Loading stock data…</p>
         </div>
@@ -71,17 +79,21 @@ export default function StockDetailPage() {
     );
   }
 
-  // ── Error / not found ──
+  // ── Not found ──
   if (!detail) {
     return (
-      <div style={{
-        minHeight: "100vh", background: "var(--color-bg)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontFamily: "var(--font-sans)",
-      }}>
+      <div
+        style={{
+          minHeight: "100vh", background: "var(--color-bg)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: "var(--font-sans)",
+        }}
+      >
         <div className="card" style={{ padding: "48px 64px", textAlign: "center" }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
-          <p style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Stock not found</p>
+          <p style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>
+            Stock not found
+          </p>
           <p style={{ color: "var(--color-text-muted)", fontSize: 14 }}>
             This stock may not exist or has been removed.
           </p>
@@ -91,24 +103,37 @@ export default function StockDetailPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--color-bg)", fontFamily: "var(--font-sans)" }}>
-
-      {/* ── Sticky header: name, price, period tabs ── */}
-        <StockHeader
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "var(--color-bg)",
+        fontFamily: "var(--font-sans)",
+      }}
+    >
+      <StockHeader
         detail={detail}
         livePrice={livePrice}
         change={change}
         changePct={changePct}
         period={period}
         onPeriod={handlePeriod}
-        history={history}   // ← add this
-        />
+        history={history}
+      />
 
-      {/* ── Main content ── */}
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "28px 24px 80px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 24, alignItems: "start" }}>
-
-          {/* ── LEFT COLUMN ── */}
+      <div
+        style={{
+          maxWidth: 1400, margin: "0 auto",
+          padding: "28px 24px 80px",
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 360px",
+            gap: 24, alignItems: "start",
+          }}
+        >
+          {/* ── Left column ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
             {/* Chart */}
@@ -121,9 +146,14 @@ export default function StockDetailPage() {
               />
             </div>
 
-            {/* Tab navigation */}
-            <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--color-border)" }}>
-              {TABS.map(t => (
+            {/* Tab nav */}
+            <div
+              style={{
+                display: "flex", gap: 0,
+                borderBottom: "1px solid var(--color-border)",
+              }}
+            >
+              {TABS.map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -134,12 +164,14 @@ export default function StockDetailPage() {
                       ? "2px solid var(--color-primary)"
                       : "2px solid transparent",
                     background: "transparent",
-                    color: tab === t ? "var(--color-primary)" : "var(--color-text-secondary)",
-                    fontWeight: tab === t ? 700 : 500,
-                    fontSize: 14,
-                    cursor: "pointer",
-                    fontFamily: "var(--font-sans)",
-                    transition: "all 0.15s",
+                    color: tab === t
+                      ? "var(--color-primary)"
+                      : "var(--color-text-secondary)",
+                    fontWeight:  tab === t ? 700 : 500,
+                    fontSize:    14,
+                    cursor:      "pointer",
+                    fontFamily:  "var(--font-sans)",
+                    transition:  "all 0.15s",
                     marginBottom: -1,
                   }}
                 >
@@ -150,13 +182,13 @@ export default function StockDetailPage() {
 
             {/* Tab content */}
             <div className="animate-fade-in">
-              {tab === "Overview"    && <OverviewTab   detail={detail}  livePrice={livePrice} />}
-              {tab === "Technicals"  && <TechnicalsTab history={history} />}
-              {tab === "News"        && <NewsTab       news={news}       loading={newsLoading} />}
+              {tab === "Overview"   && <OverviewTab   detail={detail}  livePrice={livePrice} />}
+              {tab === "Technicals" && <TechnicalsTab history={history} />}
+              {tab === "News"       && <NewsTab       news={news}       loading={newsLoading} />}
             </div>
           </div>
 
-          {/* ── RIGHT COLUMN: Order panel ── */}
+          {/* ── Right column ── */}
           <OrderPanel
             stockId={stockId}
             stockName={detail.name}
