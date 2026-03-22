@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import Field         from "@/components/ui/Field";
 import PasswordField from "@/components/ui/PasswordField";
 import Spinner       from "@/components/ui/Spinner";
+import { useAuthStore } from "@/store/useAuthStore";
 
 type Mode = "login" | "signup";
 
@@ -18,6 +19,8 @@ export default function LoginForm() {
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
   const router = useRouter();
+  const login = useAuthStore((s) => s.login);
+
 
   const switchMode = (m: Mode) => {
     setMode(m);
@@ -38,8 +41,9 @@ export default function LoginForm() {
       if (mode === "signup" && name) body.name = name;
 
       const res = await api.post(endpoint, body);
-      localStorage.setItem("accessToken",  res.data.accessToken);
-      localStorage.setItem("refreshToken", res.data.refreshToken);
+
+      login({ accessToken: res.data.accessToken, refreshToken: res.data.refreshToken });
+      
       router.push("/dashboard");
     } catch (err: unknown) {
       const message =

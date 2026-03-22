@@ -9,15 +9,17 @@ import HoldingsSection     from "@/sections/holdings/HoldingsSection";
 import OrdersSection       from "@/sections/orders/OrdersSection";
 import PositionsSection    from "@/sections/positions/PositionsSection";
 import type { NavTab }     from "@/components/Navbar";
+import { useAuthStore } from "@/store/useAuthStore";
+
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<NavTab>("Explore");
   const router = useRouter();
-
+  const { accessToken, isHydrated } = useAuthStore();
+  
   useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    if (!token) router.push("/login");
-  }, []);
+    if (isHydrated && !accessToken) router.push("/login");
+  }, [isHydrated, accessToken]);
 
   function renderSection() {
     switch (activeTab) {
