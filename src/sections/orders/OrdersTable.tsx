@@ -1,28 +1,17 @@
 "use client";
 
-import StatusBadge from "@/components/ui/StatusBadge";
+import StatusBadge        from "@/components/ui/StatusBadge";
+import CancelOrderButton  from "./CancelOrderButton";
+import type { Order }     from "@/hooks/useOrders";
 
 type FilterType = "ALL" | "BUY" | "SELL";
 
-interface Order {
-  id?:        string;
-  stockId?:   string;
-  side:       string;
-  type:       string;
-  status:     string;
-  quantity:   number;
-  filledQty?: number;
-  price:      string | number;
-  createdAt:  string;
-  stock?: {
-    symbol: string;
-  };
-}
-
 interface OrdersTableProps {
-  orders: Order[];
-  filter: FilterType;
+  orders:       Order[];
+  filter:       FilterType;
+  cancelling:   string | null;
   onFilterChange: (f: FilterType) => void;
+  onCancel:       (orderId: string) => Promise<void>;
 }
 
 function fmt(n: number) {
@@ -34,8 +23,13 @@ function fmt(n: number) {
 
 const FILTERS: FilterType[] = ["ALL", "BUY", "SELL"];
 
+// Columns — cancel column only shown for today's orders
+const TODAY_COLS  = ["Company", "Buy / Sell", "Qty", "Avg Price", "Type", "Status", ""];
+const HISTORY_COLS = ["Company", "Date", "Buy / Sell", "Qty", "Price", "Status"];
+
 export default function OrdersTable({
-  orders, filter, onFilterChange,
+  orders, filter, cancelling,
+  onFilterChange, onCancel,
 }: OrdersTableProps) {
   const filtered = orders.filter(
     (o) => filter === "ALL" || o.side === filter
@@ -43,19 +37,20 @@ export default function OrdersTable({
 
   const today = new Date().toDateString();
 
-  const todayOrders = filtered.filter(
+  const todayOrders  = filtered.filter(
     (o) => new Date(o.createdAt).toDateString() === today
   );
-
-  const olderOrders = filtered.filter(
+  const olderOrders  = filtered.filter(
     (o) => new Date(o.createdAt).toDateString() !== today
   );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-      {/* Today's orders */}
+      {/* ── Today's orders ── */}
       <div className="card animate-fade-up" style={{ overflow: "hidden" }}>
+
+        {/* Header + filter */}
         <div
           style={{
             display: "flex", alignItems: "center",
@@ -67,8 +62,6 @@ export default function OrdersTable({
           <span style={{ fontWeight: 700, fontSize: "15px" }}>
             Today's orders ({todayOrders.length})
           </span>
-
-          {/* Filter toggle */}
           <div
             style={{
               display: "flex", gap: "4px",
@@ -102,6 +95,7 @@ export default function OrdersTable({
           </div>
         </div>
 
+        {/* Empty state */}
         {todayOrders.length === 0 ? (
           <div
             style={{
@@ -119,9 +113,9 @@ export default function OrdersTable({
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "var(--color-surface-2)" }}>
-                {["Company", "Buy / Sell", "Qty", "Avg Price", "Type", "Status"].map((h, i) => (
+                {TODAY_COLS.map((h, i) => (
                   <th
-                    key={h}
+                    key={`${h}-${i}`}
                     style={{
                       padding: "10px 24px",
                       textAlign: i === 0 ? "left" : "center",
@@ -142,7 +136,7 @@ export default function OrdersTable({
                   key={order.id ?? i}
                   style={{
                     borderTop: "1px solid var(--color-border-soft)",
-                    cursor: "pointer", transition: "background 0.1s",
+                    transition: "background 0.1s",
                   }}
                   onMouseEnter={(e) =>
                     ((e.currentTarget as HTMLTableRowElement).style.background =
@@ -153,6 +147,7 @@ export default function OrdersTable({
                       "transparent")
                   }
                 >
+                  {/* Company */}
                   <td style={{ padding: "14px 24px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <div
@@ -181,6 +176,8 @@ export default function OrdersTable({
                       </div>
                     </div>
                   </td>
+
+                  {/* Side */}
                   <td style={{ textAlign: "center", padding: "14px 24px" }}>
                     <span
                       style={{
@@ -192,6 +189,8 @@ export default function OrdersTable({
                       {order.side}
                     </span>
                   </td>
+
+                  {/* Qty */}
                   <td
                     style={{
                       textAlign: "center", padding: "14px 24px",
@@ -200,20 +199,20 @@ export default function OrdersTable({
                     }}
                   >
                     {order.quantity}
-                    {order.filledQty !== undefined &&
-                      order.filledQty > 0 &&
-                      order.filledQty < order.quantity && (
-                        <span
-                          style={{
-                            fontSize: "11px",
-                            color: "var(--color-text-muted)",
-                            display: "block",
-                          }}
-                        >
-                          {order.filledQty} filled
-                        </span>
-                      )}
+                    {order.filledQty > 0 && order.filledQty < order.quantity && (
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          color: "var(--color-text-muted)",
+                          display: "block",
+                        }}
+                      >
+                        {order.filledQty} filled
+                      </span>
+                    )}
                   </td>
+
+                  {/* Price */}
                   <td
                     style={{
                       textAlign: "center", padding: "14px 24px",
@@ -223,6 +222,8 @@ export default function OrdersTable({
                   >
                     ₹{fmt(Number(order.price))}
                   </td>
+
+                  {/* Type */}
                   <td style={{ textAlign: "center", padding: "14px 24px" }}>
                     <span
                       style={{
@@ -235,8 +236,21 @@ export default function OrdersTable({
                       {order.type}
                     </span>
                   </td>
+
+                  {/* Status */}
                   <td style={{ textAlign: "center", padding: "14px 24px" }}>
                     <StatusBadge status={order.status} />
+                  </td>
+
+                  {/* Cancel */}
+                  <td style={{ textAlign: "center", padding: "14px 24px" }}>
+                    {order.status === "OPEN" && (
+                      <CancelOrderButton
+                        orderId={order.id}
+                        isCancelling={cancelling === order.id}
+                        onCancel={onCancel}
+                      />
+                    )}
                   </td>
                 </tr>
               ))}
@@ -245,105 +259,133 @@ export default function OrdersTable({
         )}
       </div>
 
-      {/* Order history (older) */}
-      {olderOrders.length > 0 && (
+        // ── Order history ──
+        {olderOrders.length > 0 && (
         <div className="card animate-fade-up" style={{ overflow: "hidden" }}>
-          <div
+            <div
             style={{
-              padding: "18px 24px",
-              borderBottom: "1px solid var(--color-border-soft)",
+                padding: "18px 24px",
+                borderBottom: "1px solid var(--color-border-soft)",
             }}
-          >
+            >
             <span style={{ fontWeight: 700, fontSize: "15px" }}>
-              Order History
+                Order History
             </span>
-          </div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ background: "var(--color-surface-2)" }}>
-                {["Company", "Date", "Buy / Sell", "Qty", "Price", "Status"].map((h, i) => (
-                  <th
-                    key={h}
+                <tr style={{ background: "var(--color-surface-2)" }}>
+                {/*  Add empty string for cancel column */}
+                {["Company", "Date", "Buy / Sell", "Qty", "Price", "Status", ""].map((h, i) => (
+                    <th
+                    key={`${h}-${i}`}
                     style={{
-                      padding: "10px 24px",
-                      textAlign: i === 0 ? "left" : "center",
-                      fontSize: "11px", fontWeight: 600,
-                      color: "var(--color-text-muted)",
-                      letterSpacing: "0.6px",
-                      textTransform: "uppercase",
+                        padding: "10px 24px",
+                        textAlign: i === 0 ? "left" : "center",
+                        fontSize: "11px", fontWeight: 600,
+                        color: "var(--color-text-muted)",
+                        letterSpacing: "0.6px",
+                        textTransform: "uppercase",
                     }}
-                  >
+                    >
                     {h}
-                  </th>
+                    </th>
                 ))}
-              </tr>
+                </tr>
             </thead>
             <tbody>
-              {olderOrders.map((order, i) => (
+                {olderOrders.map((order, i) => (
                 <tr
-                  key={order.id ?? i}
-                  style={{
+                    key={order.id ?? i}
+                    style={{
                     borderTop: "1px solid var(--color-border-soft)",
                     transition: "background 0.1s",
-                  }}
-                  onMouseEnter={(e) =>
-                    ((e.currentTarget as HTMLTableRowElement).style.background =
-                      "var(--color-surface-2)")
-                  }
-                  onMouseLeave={(e) =>
-                    ((e.currentTarget as HTMLTableRowElement).style.background =
-                      "transparent")
-                  }
-                >
-                  <td style={{ padding: "13px 24px" }}>
-                    <div style={{ fontWeight: 600, fontSize: "13px" }}>
-                      {order.stock?.symbol ?? order.stockId?.slice(0, 8)}
-                    </div>
-                  </td>
-                  <td
-                    style={{
-                      textAlign: "center", padding: "13px 24px",
-                      fontSize: "12px", color: "var(--color-text-muted)",
                     }}
-                  >
+                    onMouseEnter={(e) =>
+                    ((e.currentTarget as HTMLTableRowElement).style.background =
+                        "var(--color-surface-2)")
+                    }
+                    onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLTableRowElement).style.background =
+                        "transparent")
+                    }
+                >
+                    <td style={{ padding: "13px 24px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <div
+                        style={{
+                            width: 32, height: 32, borderRadius: "8px",
+                            background: order.side === "BUY"
+                            ? "var(--color-gain-bg)" : "var(--color-loss-bg)",
+                            color: order.side === "BUY"
+                            ? "var(--color-gain)" : "var(--color-loss)",
+                            fontWeight: 700, fontSize: "11px",
+                            display: "flex", alignItems: "center",
+                            justifyContent: "center", flexShrink: 0,
+                        }}
+                        >
+                        {order.stock?.symbol?.slice(0, 2) ?? "—"}
+                        </div>
+                        <div style={{ fontWeight: 600, fontSize: "13px" }}>
+                        {order.stock?.symbol ?? order.stockId?.slice(0, 8)}
+                        </div>
+                    </div>
+                    </td>
+                    <td
+                    style={{
+                        textAlign: "center", padding: "13px 24px",
+                        fontSize: "12px", color: "var(--color-text-muted)",
+                    }}
+                    >
                     {new Date(order.createdAt).toLocaleDateString("en-IN")}
-                  </td>
-                  <td style={{ textAlign: "center", padding: "13px 24px" }}>
+                    </td>
+                    <td style={{ textAlign: "center", padding: "13px 24px" }}>
                     <span
-                      style={{
+                        style={{
                         fontWeight: 700, fontSize: "12.5px",
                         color: order.side === "BUY"
-                          ? "var(--color-gain)" : "var(--color-loss)",
-                      }}
+                            ? "var(--color-gain)" : "var(--color-loss)",
+                        }}
                     >
-                      {order.side}
+                        {order.side}
                     </span>
-                  </td>
-                  <td
+                    </td>
+                    <td
                     style={{
-                      textAlign: "center", padding: "13px 24px",
-                      fontFamily: "var(--font-mono)", fontSize: "13px",
+                        textAlign: "center", padding: "13px 24px",
+                        fontFamily: "var(--font-mono)", fontSize: "13px",
                     }}
-                  >
+                    >
                     {order.quantity}
-                  </td>
-                  <td
+                    </td>
+                    <td
                     style={{
-                      textAlign: "center", padding: "13px 24px",
-                      fontFamily: "var(--font-mono)", fontSize: "13px",
+                        textAlign: "center", padding: "13px 24px",
+                        fontFamily: "var(--font-mono)", fontSize: "13px",
                     }}
-                  >
+                    >
                     ₹{fmt(Number(order.price))}
-                  </td>
-                  <td style={{ textAlign: "center", padding: "13px 24px" }}>
+                    </td>
+                    <td style={{ textAlign: "center", padding: "13px 24px" }}>
                     <StatusBadge status={order.status} />
-                  </td>
+                    </td>
+
+                    {/*  Cancel column for history open orders too */}
+                    <td style={{ textAlign: "center", padding: "13px 24px" }}>
+                    {(order.status === "OPEN" || order.status === "PARTIALLY_FILLED") && (
+                        <CancelOrderButton
+                        orderId={order.id}
+                        isCancelling={cancelling === order.id}
+                        onCancel={onCancel}
+                        />
+                    )}
+                    </td>
                 </tr>
-              ))}
+                ))}
             </tbody>
-          </table>
+            </table>
         </div>
-      )}
+        )}
     </div>
   );
 }

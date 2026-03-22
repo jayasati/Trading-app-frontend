@@ -1,38 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api }                 from "@/lib/api";
-import OrdersSummaryChips      from "./OrdersSummaryChips";
-import OrdersTable             from "./OrdersTable";
+import { useOrders }        from "@/hooks/useOrders";
+import OrdersSummaryChips   from "./OrdersSummaryChips";
+import OrdersTable          from "./OrdersTable";
+import EmptyState           from "@/components/ui/EmptyState";
 
 type FilterType = "ALL" | "BUY" | "SELL";
 
-interface Order {
-  id?:        string;
-  stockId?:   string;
-  side:       string;
-  type:       string;
-  status:     string;
-  quantity:   number;
-  filledQty?: number;
-  price:      string | number;
-  createdAt:  string;
-  stock?: {
-    symbol: string;
-  };
-}
-
 export default function OrdersSection() {
-  const [orders,  setOrders]  = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter,  setFilter]  = useState<FilterType>("ALL");
+  const { orders, loading, cancelling, fetchOrders, cancelOrder } = useOrders();
+  const [filter, setFilter] = useState<FilterType>("ALL");
 
-  useEffect(() => {
-    api.get("/orders")
-      .then((r) => setOrders(Array.isArray(r.data) ? r.data : []))
-      .catch(() => setOrders([]))
-      .finally(() => setLoading(false));
-  }, []);
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
   if (loading) {
     return (
@@ -47,13 +27,31 @@ export default function OrdersSection() {
     );
   }
 
+  if (orders.length === 0) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <OrdersSummaryChips orders={orders} />
+        <EmptyState
+          icon={
+            <div style={{ fontSize: 48 }}>📋</div>
+          }
+          title="No orders yet"
+          description="Orders you place from any stock page will appear here."
+          hint="Go to Explore → search a stock → place an order"
+        />
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
       <OrdersSummaryChips orders={orders} />
       <OrdersTable
         orders={orders}
         filter={filter}
+        cancelling={cancelling}
         onFilterChange={setFilter}
+        onCancel={cancelOrder}
       />
     </div>
   );
