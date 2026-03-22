@@ -2,18 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { isMarketOpen } from "@/lib/time";
 
 interface StockQuote {
-  price:    number;
-  close:    number;
+  price: number;
+  close: number;
 }
 
 interface Stock {
-  id:        string;
-  symbol:    string;
-  name:      string;
-  exchange:  string;
-  quote:     StockQuote | null;
+  id:       string;
+  symbol:   string;
+  name:     string;
+  exchange: string;
+  quote:    StockQuote | null;
 }
 
 interface StockCardProps {
@@ -37,11 +38,11 @@ function calcChange(price: number, prevClose: number) {
 
 export default function StockCard({ stock, livePrice }: StockCardProps) {
   const router    = useRouter();
+  const marketOpen = isMarketOpen();
+
   const basePrice = livePrice ?? stock.quote?.price ?? null;
   const prevClose = stock.quote?.close ?? 0;
-  const { pct }   = basePrice
-    ? calcChange(basePrice, prevClose)
-    : {  pct: 0 };
+  const { pct }   = basePrice ? calcChange(basePrice, prevClose) : { pct: 0 };
   const positive  = pct >= 0;
 
   const [flash,    setFlash]    = useState<"up" | "down" | null>(null);
@@ -92,16 +93,14 @@ export default function StockCard({ stock, livePrice }: StockCardProps) {
       {/* Logo + exchange */}
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
+          display: "flex", alignItems: "center",
           justifyContent: "space-between",
           marginBottom: "12px",
         }}
       >
         <div
           style={{
-            width: 40, height: 40,
-            borderRadius: "10px",
+            width: 40, height: 40, borderRadius: "10px",
             background: "var(--color-primary-light)",
             color: "var(--color-primary)",
             fontWeight: 700, fontSize: "13px",
@@ -124,33 +123,18 @@ export default function StockCard({ stock, livePrice }: StockCardProps) {
       </div>
 
       {/* Name */}
-      <div
-        style={{
-          fontWeight: 700, fontSize: "13.5px",
-          color: "var(--color-text-primary)",
-          marginBottom: "2px",
-        }}
-      >
+      <div style={{ fontWeight: 700, fontSize: "13.5px", color: "var(--color-text-primary)", marginBottom: "2px" }}>
         {stock.symbol}
       </div>
-      <div
-        style={{
-          fontSize: "11.5px",
-          color: "var(--color-text-muted)",
-          marginBottom: "12px",
-          lineHeight: 1.3,
-        }}
-      >
+      <div style={{ fontSize: "11.5px", color: "var(--color-text-muted)", marginBottom: "12px", lineHeight: 1.3 }}>
         {stock.name}
       </div>
 
       {/* Price */}
       <div
         style={{
-          fontFamily: "var(--font-mono)",
-          fontWeight: 700, fontSize: "17px",
-          color: "var(--color-text-primary)",
-          marginBottom: "6px",
+          fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "17px",
+          color: "var(--color-text-primary)", marginBottom: "6px",
         }}
       >
         {basePrice !== null ? `₹${fmt(basePrice)}` : "—"}
@@ -158,21 +142,60 @@ export default function StockCard({ stock, livePrice }: StockCardProps) {
 
       {/* Change badge */}
       {basePrice !== null && (
-        <span
-          style={{
-            display: "inline-flex", alignItems: "center", gap: "3px",
-            fontSize: "11.5px", fontWeight: 600,
-            color:      positive ? "var(--color-gain)"    : "var(--color-loss)",
-            background: positive ? "var(--color-gain-bg)" : "var(--color-loss-bg)",
-            padding: "2px 8px", borderRadius: "99px",
-          }}
-        >
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="3">
-            <path d={positive ? "M12 19V5M5 12l7-7 7 7" : "M12 5v14M5 12l7 7 7-7"} />
-          </svg>
-          {positive ? "+" : ""}{pct.toFixed(2)}%
-        </span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span
+            style={{
+              display: "inline-flex", alignItems: "center", gap: "3px",
+              fontSize: "11.5px", fontWeight: 600,
+              color:      positive ? "var(--color-gain)"    : "var(--color-loss)",
+              background: positive ? "var(--color-gain-bg)" : "var(--color-loss-bg)",
+              padding: "2px 8px", borderRadius: "99px",
+            }}
+          >
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="3">
+              <path d={positive ? "M12 19V5M5 12l7-7 7 7" : "M12 5v14M5 12l7 7 7-7"} />
+            </svg>
+            {positive ? "+" : ""}{pct.toFixed(2)}%
+          </span>
+
+          {/* ── Market status badge ── */}
+          {marketOpen ? (
+            <span
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 3,
+                fontSize: "10.5px", fontWeight: 600,
+                color: "var(--color-gain)",
+              }}
+            >
+              <span
+                style={{
+                  width: 5, height: 5, borderRadius: "50%",
+                  background: "var(--color-gain)", display: "inline-block",
+                  animation: "pulse 2s infinite",
+                }}
+              />
+              <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
+              Live
+            </span>
+          ) : (
+            <span
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 3,
+                fontSize: "10.5px", fontWeight: 600,
+                color: "var(--color-text-muted)",
+              }}
+            >
+              <span
+                style={{
+                  width: 5, height: 5, borderRadius: "50%",
+                  background: "var(--color-text-muted)", display: "inline-block",
+                }}
+              />
+              Closed
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

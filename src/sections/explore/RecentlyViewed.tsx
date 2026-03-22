@@ -2,6 +2,7 @@
 
 import StockCard  from "./StockCard";
 import EmptyState from "@/components/ui/EmptyState";
+import { isMarketOpen } from "@/lib/time";
 
 interface StockQuote {
   price:    number;
@@ -36,10 +37,8 @@ function SkeletonCards() {
           key={i}
           className="card animate-fade-up"
           style={{
-            padding: "18px",
-            height: "158px",
-            background:
-              "linear-gradient(90deg, var(--color-surface-2) 0%, var(--color-border-soft) 50%, var(--color-surface-2) 100%)",
+            padding: "18px", height: "158px",
+            background: "linear-gradient(90deg, var(--color-surface-2) 0%, var(--color-border-soft) 50%, var(--color-surface-2) 100%)",
             backgroundSize: "200% 100%",
             animation: "shimmer 1.5s infinite",
           }}
@@ -49,29 +48,21 @@ function SkeletonCards() {
   );
 }
 
-export default function RecentlyViewed({
-  stocks,
-  loading,
-  livePrices,
-}: RecentlyViewedProps) {
+export default function RecentlyViewed({ stocks, loading, livePrices }: RecentlyViewedProps) {
+  const marketOpen = isMarketOpen();
+
   return (
     <div>
       {/* Header */}
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
+          display: "flex", alignItems: "center",
           justifyContent: "space-between",
           marginBottom: "14px",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <h2
-            style={{
-              fontWeight: 700, fontSize: "17px",
-              color: "var(--color-text-primary)",
-            }}
-          >
+          <h2 style={{ fontWeight: 700, fontSize: "17px", color: "var(--color-text-primary)" }}>
             Recently viewed
           </h2>
           {stocks.length > 0 && (
@@ -88,30 +79,38 @@ export default function RecentlyViewed({
           )}
         </div>
 
-        {/* Live indicator */}
+        {/* ── Market status indicator in header ── */}
         {stocks.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-            <span
-              style={{
-                width: 6, height: 6,
-                borderRadius: "50%",
-                background: "var(--color-gain)",
-                boxShadow: "0 0 0 2px var(--color-gain-bg)",
-                display: "inline-block",
-                animation: "pulse 2s infinite",
-              }}
-            />
-            <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
-            <span
-              style={{
-                fontSize: "11.5px",
-                color: "var(--color-gain)",
-                fontWeight: 600,
-              }}
-            >
-              Live
-            </span>
-          </div>
+          marketOpen ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+              <span
+                style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: "var(--color-gain)",
+                  boxShadow: "0 0 0 2px var(--color-gain-bg)",
+                  display: "inline-block",
+                  animation: "pulse 2s infinite",
+                }}
+              />
+              <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
+              <span style={{ fontSize: "11.5px", color: "var(--color-gain)", fontWeight: 600 }}>
+                Live
+              </span>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+              <span
+                style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: "var(--color-text-muted)",
+                  display: "inline-block",
+                }}
+              />
+              <span style={{ fontSize: "11.5px", color: "var(--color-text-muted)", fontWeight: 600 }}>
+                Closed · Last traded prices
+              </span>
+            </div>
+          )
         )}
       </div>
 
@@ -143,16 +142,8 @@ export default function RecentlyViewed({
         )}
       </div>
 
-      {/* Hint below cards */}
       {!loading && stocks.length > 0 && stocks.length < 10 && (
-        <p
-          style={{
-            marginTop: "12px",
-            fontSize: "12px",
-            color: "var(--color-text-muted)",
-            textAlign: "center",
-          }}
-        >
+        <p style={{ marginTop: "12px", fontSize: "12px", color: "var(--color-text-muted)", textAlign: "center" }}>
           Search more stocks to add them here
         </p>
       )}
