@@ -20,7 +20,8 @@ export default function StockDetailPage() {
   const params  = useParams();
   const stockId = params.id as string;
 
-  const [period, setPeriod] = useState<Period>("1M");
+  // ── Default period changed to "1D" ───────────────────────────────────────
+  const [period, setPeriod] = useState<Period>("1D");
   const [tab,    setTab]    = useState<StockTab>("Overview");
 
   const {
@@ -51,7 +52,6 @@ export default function StockDetailPage() {
     fetchHistory(p);
   };
 
-  // ── Loading ──
   if (loading) {
     return (
       <div
@@ -79,7 +79,6 @@ export default function StockDetailPage() {
     );
   }
 
-  // ── Not found ──
   if (!detail) {
     return (
       <div
@@ -91,9 +90,7 @@ export default function StockDetailPage() {
       >
         <div className="card" style={{ padding: "48px 64px", textAlign: "center" }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
-          <p style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>
-            Stock not found
-          </p>
+          <p style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Stock not found</p>
           <p style={{ color: "var(--color-text-muted)", fontSize: 14 }}>
             This stock may not exist or has been removed.
           </p>
@@ -136,13 +133,14 @@ export default function StockDetailPage() {
           {/* ── Left column ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-            {/* Chart */}
+            {/* Chart — livePrice prop enables real-time updates */}
             <div className="card" style={{ padding: "20px 20px 16px" }}>
               <PriceChart
                 bars={history}
                 period={period}
                 positive={positive}
                 loading={histLoading}
+                livePrice={livePrice}   // ← WebSocket price fed directly to chart
               />
             </div>
 
@@ -163,10 +161,8 @@ export default function StockDetailPage() {
                     borderBottom: tab === t
                       ? "2px solid var(--color-primary)"
                       : "2px solid transparent",
-                    background: "transparent",
-                    color: tab === t
-                      ? "var(--color-primary)"
-                      : "var(--color-text-secondary)",
+                    background:  "transparent",
+                    color:       tab === t ? "var(--color-primary)" : "var(--color-text-secondary)",
                     fontWeight:  tab === t ? 700 : 500,
                     fontSize:    14,
                     cursor:      "pointer",
