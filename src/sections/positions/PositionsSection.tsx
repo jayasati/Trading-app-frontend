@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { api }                  from "@/lib/api";
 import { useLivePrices }        from "@/hooks/useLivePrices";
 import { POSITION_REFRESH_MS, isMarketOpen } from "@/lib/time";
@@ -24,8 +24,9 @@ interface Position {
 }
 
 export default function PositionsSection() {
-  const [positions, setPositions] = useState<Position[]>([]);
-  const [loading,   setLoading]   = useState(true);
+  const [positions,   setPositions]   = useState<Position[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [restPrices,  setRestPrices]  = useState<Record<string, number>>({});
 
   const fetchPositions = useCallback(async () => {
     try {
@@ -48,8 +49,37 @@ export default function PositionsSection() {
     return () => clearInterval(interval);
   }, [fetchPositions]);
 
-  const stockIds   = positions.map((p) => p.stockId);
-  const livePrices = useLivePrices(stockIds);
+  // ── Fetch REST prices for each position's stock ────────────────────────────
+  // Same pattern as HoldingsSection — ensures we always have a price even
+  // before the WebSocket broadcasts (fixes P&L showing ₹0.00 on load).
+  useEffect(() => {
+    if (!positions.length) return;
+    setRestPrices({});
+
+    positions.forEach(async (pos) => {
+      try {
+        const res  = await api.get(`/market/quote/${pos.stockId}`);
+        const data = res.data;
+        const price: number | null =
+          data?.price ?? data?.quote?.price ?? null;
+        if (price && Number(price) > 0) {
+          setRestPrices((prev) => ({ ...prev, [pos.stockId]: Number(price) }));
+        }
+      } catch {
+        // non-critical — falls back to avgBuyPrice
+      }
+    });
+  }, [positions]);
+
+  // ── WebSocket live prices (real-time ticks during market hours) ────────────
+  const stockIds  = useMemo(() => positions.map((p) => p.stockId), [positions]);
+  const wsPrices  = useLivePrices(stockIds);
+
+  // ── Merge: WebSocket wins over REST (more recent during market hours) ──────
+  const livePrices = useMemo<Record<string, number>>(() => ({
+    ...restPrices,
+    ...wsPrices,
+  }), [restPrices, wsPrices]);
 
   const openPositions   = positions.filter((p) => p.status === "OPEN");
   const closedPositions = positions.filter((p) => p.status !== "OPEN");
@@ -120,7 +150,11 @@ export default function PositionsSection() {
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <PositionsSummaryBar positions={positions} livePrices={livePrices} />
       {openPositions.length > 0 && (
-        <OpenPositionsTable positions={openPositions} livePrices={livePrices} />
+        <OpenPositionsTable
+          positions={openPositions}
+          livePrices={livePrices}
+          onRefetch={fetchPositions}
+        />
       )}
       {closedPositions.length > 0 && (
         <ClosedPositionsTable positions={closedPositions} />

@@ -43,9 +43,8 @@ export default function OrderPanel({
   const [loading,       setLoading]       = useState(false);
   const [msg,           setMsg]           = useState<{ ok: boolean; text: string } | null>(null);
 
-  const marketOpen   = isMarketOpen();
+  const marketOpen = isMarketOpen();
 
-  // Sync price to live price only on first mount / order type change
   const hasSyncedRef = useRef(false);
   useEffect(() => {
     if (oType === "LIMIT" && livePrice > 0 && !hasSyncedRef.current) {
@@ -55,7 +54,6 @@ export default function OrderPanel({
     if (oType === "MARKET") hasSyncedRef.current = false;
   }, [oType, livePrice]);
 
-  // Fetch wallet with one retry
   useEffect(() => {
     const fetchWallet = async () => {
       try {
@@ -63,14 +61,9 @@ export default function OrderPanel({
         setWallet(r.data);
       } catch {
         setTimeout(async () => {
-          try {
-            const r = await api.get("/wallet");
-            setWallet(r.data);
-          } catch {
-            // non-critical — wallet stays null
-          } finally {
-            setWalletLoading(false);
-          }
+          try { const r = await api.get("/wallet"); setWallet(r.data); }
+          catch { /* non-critical */ }
+          finally { setWalletLoading(false); }
         }, 1000);
         return;
       }
@@ -79,29 +72,50 @@ export default function OrderPanel({
     fetchWallet();
   }, []);
 
-  // Reset to delivery if market closes mid-session
   useEffect(() => {
     if (!marketOpen && category === "INTRADAY") setCategory("DELIVERY");
   }, [marketOpen, category]);
 
-  // Clear messages on any input change
   useEffect(() => { setMsg(null); }, [side, oType, category, qty, price]);
 
-  // Derived values
   const balance    = wallet ? Number(wallet.balance) : 0;
   const orderPrice = oType === "MARKET" ? livePrice : Number(price || 0);
-  const approxReq  = Number(qty || 0) * orderPrice;
+  const qtyNum     = Number(qty || 0);
+  const approxReq  = qtyNum * orderPrice;
   const marginReq  = category === "INTRADAY" ? approxReq / 5 : approxReq;
-  const canAfford  = walletLoading || side === "SELL" || balance >= marginReq;
+
+  // ── canAfford ──────────────────────────────────────────────────────────────
+  // SELL DELIVERY  → always true  (user receives money)
+  // SELL INTRADAY  → needs 20% margin (short sell collateral)
+  // BUY  any       → needs margin (20% intraday, 100% delivery)
+  // ──────────────────────────────────────────────────────────────────────────
+  const isDeliverySell = side === "SELL" && category === "DELIVERY";
+  const needsMargin    = !isDeliverySell; // everything except delivery sell needs funds
+
+  const canAfford = (() => {
+    if (walletLoading)                  return true;  // optimistic while fetching
+    if (qtyNum <= 0 || orderPrice <= 0) return true;  // no qty entered yet
+    if (!needsMargin)                   return true;  // delivery sell — free
+    return balance >= marginReq;
+  })();
 
   const placeOrder = async () => {
     setMsg(null);
-    if (!qty || Number(qty) <= 0) {
+
+    if (!qty || qtyNum <= 0) {
       setMsg({ ok: false, text: "Enter a valid quantity" });
       return;
     }
     if (oType === "LIMIT" && (!price || Number(price) <= 0)) {
       setMsg({ ok: false, text: "Enter a valid price" });
+      return;
+    }
+    // Hard client-side guard — catches the case even if button somehow isn't disabled
+    if (needsMargin && qtyNum > 0 && orderPrice > 0 && !walletLoading && balance < marginReq) {
+      setMsg({
+        ok:   false,
+        text: `Insufficient balance. Need ₹${fmt(marginReq)} but you have ₹${fmt(balance)}.`,
+      });
       return;
     }
 
@@ -113,7 +127,7 @@ export default function OrderPanel({
         type:     oType,
         category,
         price:    oType === "MARKET" ? livePrice : Number(price),
-        quantity: Number(qty),
+        quantity: qtyNum,
       });
 
       setMsg({
@@ -140,22 +154,13 @@ export default function OrderPanel({
       className="card"
       style={{ padding: 0, overflow: "hidden", position: "sticky", top: 100 }}
     >
-      {/* ── Stock name + live price ── */}
-      <div
-        style={{
-          padding: "16px 20px 12px",
-          borderBottom: "1px solid var(--color-border-soft)",
-        }}
-      >
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>
-          {stockName}
-        </div>
+      <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--color-border-soft)" }}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{stockName}</div>
         <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
           NSE · Live ₹{fmt(livePrice)}
         </div>
       </div>
 
-      {/* ── Form: side / category / type / inputs ── */}
       <OrderForm
         side={side}
         oType={oType}
@@ -171,7 +176,6 @@ export default function OrderPanel({
         onPriceChange={(v) => { setPrice(v); setMsg(null); }}
       />
 
-      {/* ── Summary: balance / margin / submit ── */}
       <OrderSummary
         side={side}
         category={category}

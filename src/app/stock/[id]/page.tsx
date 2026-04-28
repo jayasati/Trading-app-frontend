@@ -5,12 +5,13 @@ import { useParams }      from "next/navigation";
 import { useLivePrices }  from "@/hooks/useLivePrices";
 import { useStockDetail } from "@/hooks/useStockDetail";
 
-import StockHeader   from "@/components/stock/StockHeader";
-import PriceChart    from "@/components/stock/PriceChart";
-import OrderPanel    from "@/components/stock/order/OrderPanel";
-import OverviewTab   from "@/components/stock/OverviewTab";
-import TechnicalsTab from "@/components/stock/TechnicalsTab";
-import NewsTab       from "@/components/stock/NewsTab";
+import StockHeader           from "@/components/stock/StockHeader";
+import PriceChart            from "@/components/stock/PriceChart";
+import OrderPanel            from "@/components/stock/order/OrderPanel";
+import OverviewTab           from "@/components/stock/OverviewTab";
+import TechnicalsTab         from "@/components/stock/TechnicalsTab";
+import NewsTab               from "@/components/stock/NewsTab";
+import PositionHoldingBanner from "@/components/stock/PositionHoldingBanner";
 
 import type { Period, StockTab } from "@/types/stock";
 
@@ -20,7 +21,6 @@ export default function StockDetailPage() {
   const params  = useParams();
   const stockId = params.id as string;
 
-  // ── Default period changed to "1D" ───────────────────────────────────────
   const [period, setPeriod] = useState<Period>("1D");
   const [tab,    setTab]    = useState<StockTab>("Overview");
 
@@ -123,6 +123,9 @@ export default function StockDetailPage() {
           padding: "28px 24px 80px",
         }}
       >
+        {/* ── Position / Holding context banner ── */}
+        <PositionHoldingBanner stockId={stockId} livePrice={livePrice} />
+
         <div
           style={{
             display: "grid",
@@ -133,14 +136,15 @@ export default function StockDetailPage() {
           {/* ── Left column ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-            {/* Chart — livePrice prop enables real-time updates */}
+            {/* Chart */}
             <div className="card" style={{ padding: "20px 20px 16px" }}>
               <PriceChart
                 bars={history}
                 period={period}
                 positive={positive}
                 loading={histLoading}
-                livePrice={livePrice}   // ← WebSocket price fed directly to chart
+                livePrice={livePrice}
+                stockId={stockId}
               />
             </div>
 
