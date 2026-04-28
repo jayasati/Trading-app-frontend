@@ -14,6 +14,7 @@ interface OrderSummaryProps {
   walletLoading: boolean;
   loading:       boolean;
   canAfford:     boolean;
+  netShortQty:   number;
   msg:           { ok: boolean; text: string } | null;
   onSubmit:      () => void;
 }
@@ -28,11 +29,21 @@ function fmt(n: number) {
 export default function OrderSummary({
   side, category, qty, orderPrice,
   balance, walletLoading, loading,
-  canAfford, msg, onSubmit,
+  canAfford, netShortQty, msg, onSubmit,
 }: OrderSummaryProps) {
   const qtyNum    = Number(qty || 0);
   const approxReq = qtyNum * orderPrice;
-  const marginReq = category === "INTRADAY" ? approxReq / 5 : approxReq;
+
+  // Match the affordability split in OrderPanel: the cover portion of an
+  // INTRADAY BUY needs no new margin.
+  const coverQty    = side === "BUY" && category === "INTRADAY"
+    ? Math.min(qtyNum, netShortQty)
+    : 0;
+  const openLongQty = qtyNum - coverQty;
+  const marginReq   = category === "INTRADAY"
+    ? (openLongQty * orderPrice) / 5
+    : approxReq;
+  const isCoveringShort = coverQty > 0;
 
   const isDeliverySell = side === "SELL" && category === "DELIVERY";
   const isIntradaySell = side === "SELL" && category === "INTRADAY";
@@ -62,7 +73,11 @@ export default function OrderSummary({
               : isIntradaySell
                 ? "Margin required (20%) — short"
                 : category === "INTRADAY"
-                  ? "Margin required (20%)"
+                  ? isCoveringShort && openLongQty === 0
+                    ? "Covering short — no new margin"
+                    : isCoveringShort
+                      ? `Margin required (20%) — ${openLongQty} new long`
+                      : "Margin required (20%)"
                   : "Approx. required"}
           </span>
           <span style={{

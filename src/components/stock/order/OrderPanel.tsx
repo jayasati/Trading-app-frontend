@@ -42,6 +42,7 @@ export default function OrderPanel({
   const [walletLoading, setWalletLoading] = useState(true);
   const [loading,       setLoading]       = useState(false);
   const [msg,           setMsg]           = useState<{ ok: boolean; text: string } | null>(null);
+  const [netShortQty,   setNetShortQty]   = useState(0);
 
   const marketOpen = isMarketOpen();
 
@@ -72,6 +73,23 @@ export default function OrderPanel({
     fetchWallet();
   }, []);
 
+  // Track today's intraday net short for this stock so a BUY that covers
+  // it isn't blocked by the affordability check.
+  const refetchPosition = async () => {
+    try {
+      const r = await api.get("/positions");
+      const list: any[] = Array.isArray(r.data) ? r.data : [];
+      const pos = list.find((p) => p.stockId === stockId);
+      if (!pos) { setNetShortQty(0); return; }
+      const buyQty  = Number(pos.buyQty  ?? 0);
+      const sellQty = Number(pos.sellQty ?? 0);
+      setNetShortQty(Math.max(sellQty - buyQty, 0));
+    } catch {
+      setNetShortQty(0);
+    }
+  };
+  useEffect(() => { refetchPosition(); }, [stockId]);
+
   useEffect(() => {
     if (!marketOpen && category === "INTRADAY") setCategory("DELIVERY");
   }, [marketOpen, category]);
@@ -82,12 +100,22 @@ export default function OrderPanel({
   const orderPrice = oType === "MARKET" ? livePrice : Number(price || 0);
   const qtyNum     = Number(qty || 0);
   const approxReq  = qtyNum * orderPrice;
-  const marginReq  = category === "INTRADAY" ? approxReq / 5 : approxReq;
+
+  // INTRADAY BUY may be covering an existing short — cover qty needs no
+  // new margin (the short's collateral is already locked).
+  const coverQty    = side === "BUY" && category === "INTRADAY"
+    ? Math.min(qtyNum, netShortQty)
+    : 0;
+  const openLongQty = qtyNum - coverQty;
+  const marginReq   = category === "INTRADAY"
+    ? (openLongQty * orderPrice) / 5
+    : approxReq;
 
   // ── canAfford ──────────────────────────────────────────────────────────────
   // SELL DELIVERY  → always true  (user receives money)
   // SELL INTRADAY  → needs 20% margin (short sell collateral)
-  // BUY  any       → needs margin (20% intraday, 100% delivery)
+  // BUY  DELIVERY  → needs full price × qty
+  // BUY  INTRADAY  → needs 20% margin on open-long portion only
   // ──────────────────────────────────────────────────────────────────────────
   const isDeliverySell = side === "SELL" && category === "DELIVERY";
   const needsMargin    = !isDeliverySell; // everything except delivery sell needs funds
@@ -138,6 +166,7 @@ export default function OrderPanel({
 
       const w = await api.get("/wallet");
       setWallet(w.data);
+      await refetchPosition();
       onOrderDone();
     } catch (err: unknown) {
       setMsg({
@@ -185,6 +214,7 @@ export default function OrderPanel({
         walletLoading={walletLoading}
         loading={loading}
         canAfford={canAfford}
+        netShortQty={netShortQty}
         msg={msg}
         onSubmit={placeOrder}
       />
